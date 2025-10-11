@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hirer - Your E-Taxi Hailing Platform</title>
+  <meta name="description" content="Hirer - your safe, affordable e-taxi hailing platform. Book rides fast and travel smart.">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .hero {
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #fff;
+      text-align: center;
+      padding: 60px 20px;
+    }
+    .hero h1 {
+      font-size: 42px;
+      margin-bottom: 15px;
+    }
+    .hero p {
+      font-size: 20px;
+      margin-bottom: 25px;
+    }
+    .hero .btn {
+      background: #facc15;
+      color: #0f172a;
+      font-weight: bold;
+      padding: 12px 25px;
+      border-radius: 8px;
+      text-decoration: none;
+      display: inline-block;
+    }
+    footer {
+      background: #0f172a;
+      color: #94a3b8;
+      text-align: center;
+      padding: 20px;
+    }
+
+    /* ✅ Hamburger styles */
+    .menu-toggle {
+      display: none;
+      font-size: 28px;
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 20px;
+      padding: 0;
+      margin: 0;
+    }
+    nav ul li a {
+      text-decoration: none;
+      color: white;
+    }
+    @media (max-width: 768px) {
+      nav {
+        display: none;
+        width: 100%;
+      }
+      nav ul {
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px 0;
+        background: #0f172a; /* keeps background when expanded */
+      }
+      .menu-toggle {
+        display: block;
+      }
+      nav.show {
+        display: block;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header with Logo + Hamburger Menu -->
+  <header style="background:#0f172a; padding:10px; display:flex; align-items:center; justify-content:space-between;">
+    <img src="assets/hirer-logo.png" alt="Hirer Logo" style="height:50px;">
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <nav id="navMenu">
+      <ul>
+        <li><a href="#home">Home</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="rider/rider-login.html">Rider Login</a></li>
+        <li><a href="driver/driver-login.html">Driver Login</a></li>
+        <li><a href="admin/admin-dashboard.html">Admin</a></li> <!-- optional admin link -->
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero" id="home">
+    <img src="assets/hirer-logo.png" alt="Hirer Logo" style="height:100px; margin-bottom:20px;">
+    <h1>Ride Smart. Ride Safe. Ride with Hirer.</h1>
+    <p>Your reliable e-taxi solution, anytime, anywhere.</p>
+    <a href="rider/rider-login.html" class="btn">🚖 Book a Ride</a>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features" style="padding:40px 20px; text-align:center;">
+    <h2>Why Choose Hirer?</h2>
+    <div class="feature-list" style="display:flex; flex-wrap:wrap; gap:20px; justify-content:center; margin-top:20px;">
+      <div class="feature" style="flex:1 1 250px; background:#f1f5f9; padding:20px; border-radius:8px;">
+        <h3>🚘 Easy Booking</h3>
+        <p>Book your ride in seconds from your phone or laptop.</p>
+      </div>
+      <div class="feature" style="flex:1 1 250px; background:#f1f5f9; padding:20px; border-radius:8px;">
+        <h3>🔒 Safe & Secure</h3>
+        <p>All drivers are verified for your safety and comfort.</p>
+      </div>
+      <div class="feature" style="flex:1 1 250px; background:#f1f5f9; padding:20px; border-radius:8px;">
+        <h3>💸 Affordable Rides</h3>
+        <p>Transparent pricing with no hidden fees.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="about" id="about" style="padding:40px 20px; text-align:center;">
+    <h2>About Hirer</h2>
+    <p>
+      Hirer is a fast-growing e-taxi platform built for modern commuters.
+      Whether you're heading to work, school, or just want to ride around,
+      we'll get you there quickly, safely, and affordably.
+    </p>
+  </section>
+
+  <!-- Contact -->
+  <section class="contact" id="contact" style="padding:40px 20px; text-align:center;">
+    <h2>Get in Touch</h2>
+    <p>Have questions? Ready to ride? Reach out to us below.</p>
+    <form id="contactForm" style="max-width:400px; margin:20px auto; display:flex; flex-direction:column; gap:10px;">
+      <input type="text" placeholder="Your Name" required />
+      <input type="email" placeholder="Your Email" required />
+      <textarea placeholder="Your Message" rows="4"></textarea>
+      <button type="submit" style="background:#0f172a; color:white; padding:10px; border:none; border-radius:6px;">Send Message</button>
+    </form>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>&copy; 2025 Hirer. All rights reserved.</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script>
+    // ✅ Hamburger Menu
+    const menuToggle = document.getElementById("menuToggle");
+    const navMenu = document.getElementById("navMenu");
+
+    menuToggle.addEventListener("click", () => {
+      navMenu.classList.toggle("show");
+    });
+
+    navMenu.addEventListener("click", (e) => {
+      if (e.target.tagName === "A") {
+        navMenu.classList.remove("show");
+      }
+    });
+
+    // ✅ Contact form (test mode)
+    document.getElementById("contactForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      alert("Thanks for contacting Hirer! We’ll get back to you soon.");
+    });
+  </script>
+
+</body>
+</html>

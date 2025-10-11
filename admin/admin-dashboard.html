@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Hirer</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .auth {
+      max-width: 400px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      background: #f9f9f9;
+    }
+    .auth h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .auth input, .auth button {
+      width: 100%;
+      margin: 8px 0;
+      padding: 10px;
+    }
+    .notice {
+      color: red;
+      font-size: 14px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <nav id="navMenu">
+      <ul>
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="admin-dashboard.html">Admin Dashboard</a></li>
+        <li><button id="logoutBtn" style="display:none;">Logout</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Login Form -->
+  <div class="auth" id="loginFormContainer" style="display:none;">
+    <h2>Admin Login</h2>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <button type="submit">Login</button>
+    </form>
+    <p id="loginMsg" class="notice"></p>
+    <button id="resendBtn" style="display:none;">Resend Verification Email</button>
+  </div>
+
+  <!-- Dashboard Container -->
+  <div class="container" id="dashboardContainer" style="display:none;">
+    <h2>Admin Dashboard</h2>
+    <p id="statusMsg">Checking permissions...</p>
+
+    <div id="driverList" style="display:none;">
+      <h3>Pending Drivers</h3>
+      <div id="pendingDrivers"></div>
+
+      <h3>Approved Drivers</h3>
+      <div id="approvedDrivers"></div>
+
+      <h3>Rejected Drivers</h3>
+      <div id="rejectedDrivers"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "../firebase/firebase-config.js";
+    import { 
+      signInWithEmailAndPassword, 
+      onAuthStateChanged, 
+      signOut, 
+      sendEmailVerification 
+    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    const loginFormContainer = document.getElementById("loginFormContainer");
+    const dashboardContainer = document.getElementById("dashboardContainer");
+    const statusMsg = document.getElementById("statusMsg");
+    const driverList = document.getElementById("driverList");
+    const pendingDrivers = document.getElementById("pendingDrivers");
+    const approvedDrivers = document.getElementById("approvedDrivers");
+    const rejectedDrivers = document.getElementById("rejectedDrivers");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const loginMsg = document.getElementById("loginMsg");
+    const resendBtn = document.getElementById("resendBtn");
+
+    let lastUser = null;
+
+    // ✅ Handle login form
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (err) {
+        loginMsg.textContent = "❌ Login failed: " + err.message;
+      }
+    });
+
+    // ✅ Auth state check
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        loginFormContainer.style.display = "block";
+        dashboardContainer.style.display = "none";
+        logoutBtn.style.display = "none";
+        resendBtn.style.display = "none";
+        return;
+      }
+
+      if (!user.emailVerified) {
+        loginMsg.textContent = "⚠️ Please verify your email before accessing the dashboard.";
+        resendBtn.style.display = "block";
+        lastUser = user;
+        dashboardContainer.style.display = "none";
+        logoutBtn.style.display = "block";
+        return;
+      }
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists() || userDoc.data().role !== "admin") {
+        statusMsg.textContent = "❌ Access denied. Admins only.";
+        dashboardContainer.style.display = "block";
+        driverList.style.display = "none";
+        logoutBtn.style.display = "block";
+        loginFormContainer.style.display = "none";
+        return;
+      }
+
+      // ✅ Show dashboard
+      loginFormContainer.style.display = "none";
+      dashboardContainer.style.display = "block";
+      logoutBtn.style.display = "block";
+      statusMsg.style.display = "none";
+      driverList.style.display = "block";
+
+      // Load drivers by status
+      const loadDrivers = (status, container) => {
+        const q = query(collection(db, "drivers"), where("status", "==", status));
+        onSnapshot(q, (snapshot) => {
+          container.innerHTML = "";
+          if (snapshot.empty) {
+            container.innerHTML = `<p>No ${status} drivers.</p>`;
+            return;
+          }
+          snapshot.forEach((docSnap) => {
+            const driver = docSnap.data();
+            const driverCard = document.createElement("div");
+            driverCard.classList.add("ride");
+            driverCard.innerHTML = `
+              <p><strong>Email:</strong> ${driver.email}</p>
+              <p><strong>Name:</strong> ${driver.fullName || "N/A"}</p>
+              <p><strong>Phone:</strong> ${driver.phoneNumber || "N/A"}</p>
+              <p><strong>Vehicle:</strong> ${driver.vehicleType || "N/A"} (${driver.plateNumber || "N/A"})</p>
+              <p><a href="${driver.licenseURL}" target="_blank">📄 View License</a></p>
+              <p><strong>Status:</strong> ${driver.status}</p>
+            `;
+
+            if (status === "pending") {
+              const approveBtn = document.createElement("button");
+              approveBtn.textContent = "Approve";
+              approveBtn.onclick = async () => {
+                if (!driver.fullName || !driver.vehicleType || !driver.plateNumber || !driver.licenseURL) {
+                  alert("❌ Driver profile incomplete. Cannot approve.");
+                  return;
+                }
+                await updateDoc(doc(db, "drivers", docSnap.id), { status: "approved" });
+                alert("✅ Driver approved!");
+              };
+              driverCard.appendChild(approveBtn);
+
+              const rejectBtn = document.createElement("button");
+              rejectBtn.textContent = "Reject";
+              rejectBtn.onclick = async () => {
+                await updateDoc(doc(db, "drivers", docSnap.id), { status: "rejected" });
+                alert("🚫 Driver rejected!");
+              };
+              driverCard.appendChild(rejectBtn);
+            } else if (status === "approved") {
+              const rejectBtn = document.createElement("button");
+              rejectBtn.textContent = "Reject";
+              rejectBtn.onclick = async () => {
+                await updateDoc(doc(db, "drivers", docSnap.id), { status: "rejected" });
+                alert("🚫 Driver moved to rejected!");
+              };
+              driverCard.appendChild(rejectBtn);
+            } else if (status === "rejected") {
+              const approveBtn = document.createElement("button");
+              approveBtn.textContent = "Re-Approve";
+              approveBtn.onclick = async () => {
+                await updateDoc(doc(db, "drivers", docSnap.id), { status: "approved" });
+                alert("✅ Driver re-approved!");
+              };
+              driverCard.appendChild(approveBtn);
+            }
+
+            container.appendChild(driverCard);
+          });
+        });
+      };
+
+      loadDrivers("pending", pendingDrivers);
+      loadDrivers("approved", approvedDrivers);
+      loadDrivers("rejected", rejectedDrivers);
+    });
+
+    // ✅ Resend verification email
+    resendBtn.addEventListener("click", async () => {
+      if (lastUser) {
+        await sendEmailVerification(lastUser);
+        alert("📩 Verification email resent! Check your inbox.");
+      }
+    });
+
+    // ✅ Logout
+    logoutBtn?.addEventListener("click", async () => {
+      await signOut(auth);
+      loginFormContainer.style.display = "block";
+      dashboardContainer.style.display = "none";
+      logoutBtn.style.display = "none";
+      resendBtn.style.display = "none";
+    });
+
+    // ✅ Hamburger toggle
+    const menuToggle = document.getElementById("menuToggle");
+    const navMenu = document.getElementById("navMenu");
+    menuToggle.addEventListener("click", () => navMenu.classList.toggle("show"));
+    navMenu.addEventListener("click", (e) => {
+      if (e.target.tagName === "A" || e.target.tagName === "BUTTON") {
+        navMenu.classList.remove("show");
+      }
+    });
+  </script>
+</body>
+</html>

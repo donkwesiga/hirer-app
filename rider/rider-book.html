@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book a Ride - Hirer</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="auth">
+    <h2>Book a Ride</h2>
+    <form id="bookForm">
+      <input type="text" id="pickup" placeholder="Pickup Location" required>
+      <input type="text" id="dropoff" placeholder="Dropoff Location" required>
+      <input type="number" id="distanceKm" placeholder="Estimated Distance (km)" required>
+      <button type="submit">Book Ride</button>
+    </form>
+  </div>
+
+  <!-- ✅ Flutterwave Inline Script -->
+  <script src="https://checkout.flutterwave.com/v3.js"></script>
+
+  <script type="module">
+    import { auth, db } from "../firebase/firebase-config.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { collection, addDoc, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    const form = document.getElementById("bookForm");
+    let currentUser = null;
+
+    // ✅ Check if rider is logged in
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = "rider-login.html";
+      } else {
+        currentUser = user;
+      }
+    });
+
+    // ✅ Handle booking
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentUser) {
+        alert("You must be logged in to book a ride.");
+        return;
+      }
+
+      const pickup = document.getElementById("pickup").value;
+      const dropoff = document.getElementById("dropoff").value;
+      const distanceKm = parseFloat(document.getElementById("distanceKm").value);
+
+      // Simple fare calculation: $5 base + $1 per km
+      const price = 5 + distanceKm * 1;
+
+      try {
+        // Save ride request
+        const rideRef = await addDoc(collection(db, "rides"), {
+          riderId: currentUser.uid,
+          pickup,
+          dropoff,
+          distanceKm,
+          price,
+          status: "pending",
+          createdAt: serverTimestamp()
+        });
+
+        // ✅ Get rider details
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        const riderData = userDoc.exists() ? userDoc.data() : {};
+
+        // ✅ Call Flutterwave Checkout
+        payWithFlutterwave(rideRef.id, price, currentUser.email, riderData.phone || "");
+
+      } catch (err) {
+        alert("Booking failed: " + err.message);
+      }
+    });
+
+    // ✅ Flutterwave payment function
+    function payWithFlutterwave(rideId, amount, riderEmail, riderPhone) {
+      FlutterwaveCheckout({
+        public_key: "FLWPUBK_TEST-xxxxxxxxxxxxxxxxxxxxx-X", // 🔑 Replace with your test public key
+        tx_ref: "hirer_" + rideId + "_" + Date.now(),
+        amount: amount,
+        currency: "RWF",
+        payment_options: "card,mobilemoneyrwanda",
+        customer: {
+          email: riderEmail,
+          phonenumber: riderPhone,
+        },
+        callback: function (data) {
+          alert("✅ Payment successful! Transaction ID: " + data.transaction_id);
+          // You can update ride status in Firestore here if needed
+        },
+        onclose: function() {
+          console.log("Payment modal closed");
+        },
+      });
+    }
+  </script>
+</body>
+</html>

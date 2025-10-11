@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rider Dashboard - Hirer</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <header>
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <nav id="navMenu">
+      <ul>
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="rider-dashboard.html">Dashboard</a></li>
+        <li><a href="rider-book.html">Book a Ride</a></li>
+        <li><button id="logoutBtn">Logout</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="container">
+    <h2>Welcome, Rider!</h2>
+
+    <h3>Book a Ride</h3>
+    <form id="rideForm">
+      <input type="text" id="pickup" placeholder="Pickup Location" required>
+      <input type="text" id="dropoff" placeholder="Dropoff Location" required>
+      <input type="number" id="distanceKm" placeholder="Distance (km)" min="1" step="0.1" required>
+      <input type="tel" id="phoneNumber" placeholder="Your MTN Phone Number (2507XXXXXXX)" required>
+      <button type="submit">Request Ride</button>
+    </form>
+
+    <hr>
+
+    <h3>Active Rides</h3>
+    <div id="activeRides"></div>
+
+    <h3>Ride History</h3>
+    <div id="rideHistory"></div>
+  </div>
+
+  <script type="module">
+    import { auth, db, functions } from "../firebase/firebase-config.js";
+    import { onAuthStateChanged, signOut } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { httpsCallable } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-functions.js";
+
+    const activeRides = document.getElementById("activeRides");
+    const rideHistory = document.getElementById("rideHistory");
+    const rideForm = document.getElementById("rideForm");
+
+    // 🔹 MoMo Payment Function
+    async function payForRide(rideId, amount, phoneNumber) {
+      try {
+        const momoCollect = httpsCallable(functions, "momoCollect");
+        const result = await momoCollect({ rideId, amount, phoneNumber });
+
+        if (result.data.success) {
+          alert("✅ Payment initiated! Reference: " + result.data.referenceId);
+        } else {
+          alert("❌ Payment failed.");
+        }
+      } catch (err) {
+        alert("Payment error: " + err.message);
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = "rider-login.html";
+        return;
+      }
+
+      // ✅ Listen for this rider’s rides
+      const q = query(collection(db, "rides"), where("riderId", "==", user.uid));
+      onSnapshot(q, (snapshot) => {
+        activeRides.innerHTML = "";
+        rideHistory.innerHTML = "";
+
+        snapshot.forEach((docSnap) => {
+          const ride = docSnap.data();
+          const rideId = docSnap.id;
+
+          const rideCard = document.createElement("div");
+          rideCard.classList.add("ride");
+          rideCard.innerHTML = `
+            <p><strong>Pickup:</strong> ${ride.pickup}</p>
+            <p><strong>Dropoff:</strong> ${ride.dropoff}</p>
+            <p><strong>Status:</strong> ${ride.status}</p>
+            ${ride.distanceKm ? `<p><strong>Distance:</strong> ${ride.distanceKm.toFixed(1)} km</p>` : ""}
+            ${ride.price ? `<p><strong>Fare:</strong> RWF ${ride.price.toFixed(0)}</p>` : ""}
+          `;
+
+          if (ride.status === "pending" || ride.status === "accepted") {
+            if (ride.status === "pending") {
+              const cancelBtn = document.createElement("button");
+              cancelBtn.textContent = "Cancel Ride";
+              cancelBtn.onclick = async () => {
+                await updateDoc(doc(db, "rides", rideId), { status: "cancelled" });
+              };
+              rideCard.appendChild(cancelBtn);
+
+              // 🔹 Add MoMo Pay button
+              const payBtn = document.createElement("button");
+              payBtn.textContent = "Pay with MoMo";
+              payBtn.onclick = () => {
+                payForRide(rideId, ride.price, ride.phoneNumber || "2507XXXXXXX");
+              };
+              rideCard.appendChild(payBtn);
+            }
+            activeRides.appendChild(rideCard);
+          } else {
+            rideHistory.appendChild(rideCard);
+          }
+        });
+      });
+
+      // ✅ Handle ride booking
+      rideForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const pickup = document.getElementById("pickup").value.trim();
+        const dropoff = document.getElementById("dropoff").value.trim();
+        const distanceKm = parseFloat(document.getElementById("distanceKm").value);
+        const phoneNumber = document.getElementById("phoneNumber").value.trim();
+
+        if (!pickup || !dropoff || !distanceKm || distanceKm <= 0 || !phoneNumber) {
+          alert("Please fill in all fields correctly.");
+          return;
+        }
+
+        // Simple fare calculation
+        const baseFare = 1000; // in RWF
+        const perKm = 500;     // in RWF
+        const price = baseFare + perKm * distanceKm;
+
+        try {
+          await addDoc(collection(db, "rides"), {
+            riderId: user.uid,
+            pickup,
+            dropoff,
+            distanceKm,
+            price,
+            phoneNumber,
+            status: "pending",
+            createdAt: serverTimestamp()
+          });
+
+          rideForm.reset();
+          alert(`Ride requested! Estimated fare: RWF ${price.toFixed(0)}`);
+        } catch (err) {
+          alert("Failed to book ride: " + err.message);
+        }
+      });
+    });
+
+    // ✅ Logout button
+    document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "rider-login.html";
+    });
+
+    // ✅ Hamburger toggle
+    const menuToggle = document.getElementById("menuToggle");
+    const navMenu = document.getElementById("navMenu");
+
+    menuToggle.addEventListener("click", () => {
+      navMenu.classList.toggle("show");
+    });
+
+    navMenu.addEventListener("click", (e) => {
+      if (e.target.tagName === "A" || e.target.tagName === "BUTTON") {
+        navMenu.classList.remove("show");
+      }
+    });
+  </script>
+</body>
+</html>

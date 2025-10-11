@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rider Registration - Hirer</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="auth">
+    <h2>Register as a Rider</h2>
+    <form id="registerForm">
+      <input type="text" id="fullName" placeholder="Full Name" required>
+      <input type="tel" id="phoneNumber" placeholder="Phone Number" required>
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <button type="submit">Register</button>
+    </form>
+    <p>Already have an account? <a href="rider-login.html">Login</a></p>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "../firebase/firebase-config.js";
+    import { createUserWithEmailAndPassword, sendEmailVerification } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { doc, setDoc } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const fullName = document.getElementById("fullName").value.trim();
+      const phoneNumber = document.getElementById("phoneNumber").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      try {
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        await sendEmailVerification(userCred.user);
+
+        await setDoc(doc(db, "riders", userCred.user.uid), {
+          fullName,
+          phoneNumber,
+          email,
+          createdAt: new Date()
+        });
+
+        await setDoc(doc(db, "users", userCred.user.uid), {
+          role: "rider",
+          email,
+          createdAt: new Date()
+        });
+
+        alert("✅ Registration successful! Please check your email inbox to verify before logging in.");
+        window.location.href = "rider-login.html";
+      } catch (err) {
+        alert("❌ Registration failed: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

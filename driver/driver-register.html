@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Driver Registration - Hirer</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="auth">
+    <h2>Register as a Driver</h2>
+    <form id="registerForm">
+      <input type="text" id="fullName" placeholder="Full Name" required>
+      <input type="tel" id="phoneNumber" placeholder="Phone Number" required>
+      <input type="text" id="vehicleType" placeholder="Vehicle Type" required>
+      <input type="text" id="plateNumber" placeholder="Plate Number" required>
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <input type="file" id="licenseFile" accept="image/*,application/pdf" required>
+      <button type="submit">Register</button>
+    </form>
+    <p>Already have an account? <a href="driver-login.html">Login</a></p>
+  </div>
+
+  <script type="module">
+    import { auth, db, storage } from "../firebase/firebase-config.js";
+    import { createUserWithEmailAndPassword, sendEmailVerification } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { doc, setDoc } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { ref, uploadBytes, getDownloadURL } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const fullName = document.getElementById("fullName").value.trim();
+      const phoneNumber = document.getElementById("phoneNumber").value.trim();
+      const vehicleType = document.getElementById("vehicleType").value.trim();
+      const plateNumber = document.getElementById("plateNumber").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const file = document.getElementById("licenseFile").files[0];
+
+      if (!file) {
+        alert("Please upload your license file.");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File too large! Max size is 5MB.");
+        return;
+      }
+
+      try {
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        await sendEmailVerification(userCred.user);
+
+        const storageRef = ref(storage, `licenses/${userCred.user.uid}/${file.name}`);
+        await uploadBytes(storageRef, file);
+        const fileURL = await getDownloadURL(storageRef);
+
+        await setDoc(doc(db, "drivers", userCred.user.uid), {
+          fullName,
+          phoneNumber,
+          vehicleType,
+          plateNumber,
+          email,
+          licenseURL: fileURL,
+          status: "pending",
+          createdAt: new Date()
+        });
+
+        await setDoc(doc(db, "users", userCred.user.uid), {
+          role: "driver",
+          email,
+          createdAt: new Date()
+        });
+
+        alert("✅ Driver registered! Please check your email inbox to verify your account. Admin must approve your profile before you can accept rides.");
+        window.location.href = "driver-login.html";
+      } catch (err) {
+        alert("❌ Registration failed: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

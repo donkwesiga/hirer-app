@@ -1,0 +1,161 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Driver Dashboard - Hirer</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <nav id="navMenu">
+      <ul>
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="driver-dashboard.html">Dashboard</a></li>
+        <li><button id="logoutBtn">Logout</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Dashboard Container -->
+  <div class="container">
+    <h2>Welcome, Driver!</h2>
+    <p id="approvalMsg" style="color:red; font-weight:bold; display:none;">
+      Your account is pending admin approval. You cannot accept rides yet.
+    </p>
+
+    <h3>Available Rides</h3>
+    <div id="availableRides"></div>
+
+    <h3>My Accepted Rides</h3>
+    <div id="myRides"></div>
+
+    <h3>Ride History</h3>
+    <div id="rideHistory"></div>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "../firebase/firebase-config.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { collection, query, onSnapshot, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    const availableRides = document.getElementById("availableRides");
+    const myRides = document.getElementById("myRides");
+    const rideHistory = document.getElementById("rideHistory");
+    const approvalMsg = document.getElementById("approvalMsg");
+
+    let driverData = null;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "driver-login.html";
+        return;
+      }
+
+      // 🔎 Load driver profile
+      const driverDoc = await getDoc(doc(db, "drivers", user.uid));
+      driverData = driverDoc.exists() ? driverDoc.data() : null;
+
+      if (!driverData) {
+        approvalMsg.textContent = "Your driver profile is incomplete.";
+        approvalMsg.style.display = "block";
+        return;
+      }
+
+      if (driverData.status !== "approved") {
+        approvalMsg.style.display = "block"; // pending or rejected
+        return;
+      }
+
+      // ✅ Only approved drivers can listen for rides
+      const q = query(collection(db, "rides"));
+      onSnapshot(q, (snapshot) => {
+        availableRides.innerHTML = "";
+        myRides.innerHTML = "";
+        rideHistory.innerHTML = "";
+
+        snapshot.forEach((docSnap) => {
+          const ride = docSnap.data();
+          const rideId = docSnap.id;
+
+          const rideCard = document.createElement("div");
+          rideCard.classList.add("ride");
+          rideCard.innerHTML = `
+            <p><strong>Pickup:</strong> ${ride.pickup}</p>
+            <p><strong>Dropoff:</strong> ${ride.dropoff}</p>
+            <p><strong>Status:</strong> ${ride.status}</p>
+            ${ride.distanceKm ? `<p><strong>Distance:</strong> ${ride.distanceKm} km</p>` : ""}
+            ${ride.price ? `<p><strong>Fare:</strong> RWF ${ride.price.toFixed(0)}</p>` : ""}
+            <p><strong>Payment:</strong> ${ride.paid ? "✅ Paid" : "❌ Not Paid"}</p>
+            ${ride.driverName ? `<p><strong>Driver:</strong> ${ride.driverName} — ${ride.vehicleType} (${ride.plateNumber})</p>` : ""}
+          `;
+
+          if (ride.status === "pending") {
+            // ✅ Available ride → Accept button
+            const acceptBtn = document.createElement("button");
+            acceptBtn.textContent = "Accept Ride";
+            acceptBtn.onclick = async () => {
+              const rideRef = doc(db, "rides", rideId);
+              const rideSnap = await getDoc(rideRef);
+
+              if (!rideSnap.exists() || rideSnap.data().status !== "pending") {
+                alert("Sorry, this ride has already been accepted.");
+                return;
+              }
+
+              await updateDoc(rideRef, {
+                status: "accepted",
+                driverId: user.uid,
+                driverName: driverData.fullName,
+                vehicleType: driverData.vehicleType,
+                plateNumber: driverData.plateNumber
+              });
+            };
+            rideCard.appendChild(acceptBtn);
+            availableRides.appendChild(rideCard);
+          } 
+          else if (ride.driverId === user.uid && ride.status === "accepted") {
+            // ✅ Active ride → Complete button (only if paid)
+            if (!ride.paid) {
+              const waitMsg = document.createElement("p");
+              waitMsg.style.color = "red";
+              waitMsg.textContent = "⏳ Waiting for rider to complete payment...";
+              rideCard.appendChild(waitMsg);
+            } else {
+              const completeBtn = document.createElement("button");
+              completeBtn.textContent = "Complete Ride";
+              completeBtn.onclick = async () => {
+                await updateDoc(doc(db, "rides", rideId), { status: "completed" });
+              };
+              rideCard.appendChild(completeBtn);
+            }
+            myRides.appendChild(rideCard);
+          } 
+          else if (ride.driverId === user.uid && (ride.status === "completed" || ride.status === "cancelled")) {
+            // ✅ Past rides
+            rideHistory.appendChild(rideCard);
+          }
+        });
+      });
+    });
+
+    // ✅ Logout button
+    document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "driver-login.html";
+    });
+
+    // ✅ Hamburger toggle
+    const menuToggle = document.getElementById("menuToggle");
+    const navMenu = document.getElementById("navMenu");
+    menuToggle.addEventListener("click", () => navMenu.classList.toggle("show"));
+    navMenu.addEventListener("click", (e) => {
+      if (e.target.tagName === "A" || e.target.tagName === "BUTTON") {
+        navMenu.classList.remove("show");
+      }
+    });
+  </script>
+</body>
+</html>

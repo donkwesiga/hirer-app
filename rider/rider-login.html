@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rider Login - Hirer</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="auth">
+    <h2>Login as a Rider</h2>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <button type="submit">Login</button>
+    </form>
+    <p>Don't have an account? <a href="rider-register.html">Register</a></p>
+    <button id="resendBtn" style="display:none;">Resend Verification Email</button>
+  </div>
+
+  <script type="module">
+    import { auth } from "../firebase/firebase-config.js";
+    import { signInWithEmailAndPassword, sendEmailVerification } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+    const resendBtn = document.getElementById("resendBtn");
+    let lastUser = null;
+
+    document.getElementById("loginForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      try {
+        const userCred = await signInWithEmailAndPassword(auth, email, password);
+        if (!userCred.user.emailVerified) {
+          alert("⚠️ Please verify your email before logging in.");
+          lastUser = userCred.user;
+          resendBtn.style.display = "block";
+          return;
+        }
+        window.location.href = "rider-dashboard.html";
+      } catch (err) {
+        alert("❌ Login failed: " + err.message);
+      }
+    });
+
+    resendBtn.addEventListener("click", async () => {
+      if (lastUser) {
+        await sendEmailVerification(lastUser);
+        alert("📩 Verification email resent! Check your inbox.");
+      }
+    });
+  </script>
+</body>
+</html>

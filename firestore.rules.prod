@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Riders can only manage their own rides
+    match /rides/{rideId} {
+      allow create: if request.auth != null && request.resource.data.riderId == request.auth.uid;
+      allow read: if request.auth != null && (
+        resource.data.riderId == request.auth.uid || resource.data.driverId == request.auth.uid
+      );
+      allow update: if request.auth != null && (
+        (resource.data.riderId == request.auth.uid && request.resource.data.status == "cancelled") ||
+        (resource.data.driverId == request.auth.uid && request.resource.data.status == "completed")
+      );
+    }
+
+    // Drivers can only manage their own profile
+    match /drivers/{driverId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == driverId;
+    }
+
+    // Riders can only manage their own profile
+    match /riders/{riderId} {
+      allow read, write: if request.auth != null && request.auth.uid == riderId;
+    }
+
+    // Users can only manage their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Admin can approve/reject drivers
+    match /drivers/{driverId} {
+      allow update: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+  }
+}
