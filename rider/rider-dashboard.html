@@ -56,11 +56,16 @@
     // 🔹 MoMo Payment Function
     async function payForRide(rideId, amount, phoneNumber) {
       try {
-        const momoCollect = httpsCallable(functions, "momoCollect");
-        const result = await momoCollect({ rideId, amount, phoneNumber });
+        const requestPayment = httpsCallable(functions, "requestPayment");
+        const result = await requestPayment({
+          rideId,
+          amount,
+          phoneNumber,
+          currency: "RWF"
+        });
 
         if (result.data.success) {
-          alert("✅ Payment initiated! Reference: " + result.data.referenceId);
+          alert(`✅ Payment initiated!\nTransaction ID: ${result.data.transactionId}`);
         } else {
           alert("❌ Payment failed.");
         }
