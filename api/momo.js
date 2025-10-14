@@ -1,4 +1,4 @@
- import axios from "axios";
+import axios from "axios";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -15,10 +15,12 @@ export default async function handler(req, res) {
     const momoUser = process.env.MOMO_API_USER;
     const momoKey = process.env.MOMO_API_KEY;
     const momoSub = process.env.MOMO_SUBSCRIPTION_KEY;
+    const momoBaseUrl =
+      process.env.MOMO_BASE_URL || "https://sandbox.momodeveloper.mtn.com/collection";
 
-    // Generate access token
+    // 🔑 Generate access token
     const tokenResponse = await axios.post(
-      "https://sandbox.momodeveloper.mtn.com/collection/token/",
+      `${momoBaseUrl}/token/`,
       {},
       {
         headers: {
@@ -31,13 +33,15 @@ export default async function handler(req, res) {
 
     const accessToken = tokenResponse.data.access_token;
 
-    // Make payment request
+    // 💸 Make payment request
+    const referenceId = externalId || Date.now().toString();
+
     const paymentResponse = await axios.post(
-      "https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay",
+      `${momoBaseUrl}/v1_0/requesttopay`,
       {
         amount,
-        currency: "EUR",
-        externalId: externalId || Date.now().toString(),
+        currency: "RWF",
+        externalId: referenceId,
         payer: {
           partyIdType: "MSISDN",
           partyId: phoneNumber,
@@ -48,7 +52,7 @@ export default async function handler(req, res) {
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "X-Reference-Id": externalId || Date.now().toString(),
+          "X-Reference-Id": referenceId,
           "X-Target-Environment": "sandbox",
           "Ocp-Apim-Subscription-Key": momoSub,
           "Content-Type": "application/json",
@@ -61,8 +65,10 @@ export default async function handler(req, res) {
       data: paymentResponse.data,
     });
   } catch (error) {
-    console.error(error.response?.data || error.message);
-    return res.status(500).json({ error: "Payment failed", details: error.message });
+    console.error("MoMo Payment Error:", error.response?.data || error.message);
+    return res.status(500).json({
+      error: "Payment failed",
+      details: error.response?.data || error.message,
+    });
   }
 }
-
