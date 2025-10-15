@@ -27,7 +27,8 @@ export default async function handler(req, res) {
     console.log("🔑 Using MOMO_SUB:", momoSub ? "Loaded ✅" : "Missing ❌");
     console.log("🌍 Base URL:", momoBase);
 
-    // Generate access token
+    // Step 1: Generate access token
+    console.log("🔐 Requesting access token...");
     const tokenResponse = await axios.post(
       `${momoBase}/collection/token/`,
       {},
@@ -40,24 +41,30 @@ export default async function handler(req, res) {
       }
     );
 
-    console.log("✅ Token response:", tokenResponse.data);
-
     const accessToken = tokenResponse.data.access_token;
+    console.log("✅ Access token received");
 
-    // Make payment request
+    // Step 2: Create payment request
     const referenceId = Date.now().toString();
     console.log("💸 Creating payment with reference:", referenceId);
 
+    const paymentData = {
+      amount,
+      currency: "RWF", // Rwanda Francs
+      externalId: referenceId,
+      payer: {
+        partyIdType: "MSISDN",
+        partyId: phoneNumber, // Must be string, not number
+      },
+      payerMessage: "Ride payment",
+      payeeNote: "Hirer ride payment",
+    };
+
+    console.log("📤 Sending payment request:", paymentData);
+
     const paymentResponse = await axios.post(
       `${momoBase}/collection/v1_0/requesttopay`,
-      {
-        amount,
-        currency: "EUR",
-        externalId: referenceId,
-        payer: { partyIdType: "MSISDN", partyId: phoneNumber },
-        payerMessage: "Ride payment",
-        payeeNote: "Hirer ride payment",
-      },
+      paymentData,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -69,7 +76,7 @@ export default async function handler(req, res) {
       }
     );
 
-    console.log("✅ Payment response:", paymentResponse.data);
+    console.log("✅ Payment request sent successfully:", paymentResponse.data);
 
     return res.status(200).json({
       success: true,
@@ -79,8 +86,9 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error("💥 ERROR in MoMo handler:", error.response?.data || error.message);
-    return res
-      .status(500)
-      .json({ error: "Payment failed", details: error.response?.data || error.message });
+    return res.status(500).json({
+      error: "Payment failed",
+      details: error.response?.data || error.message,
+    });
   }
 }
