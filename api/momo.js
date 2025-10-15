@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   const { amount, phoneNumber } = req.body;
-  console.log("Request body:", req.body);
+  console.log("🧾 Request body:", req.body);
 
   if (!amount || !phoneNumber) {
     console.log("❌ Missing required fields.");
@@ -20,14 +20,15 @@ export default async function handler(req, res) {
     const momoUser = process.env.MOMO_API_USER;
     const momoKey = process.env.MOMO_API_KEY;
     const momoSub = process.env.MOMO_SUBSCRIPTION_KEY;
-    const momoBase = process.env.MOMO_BASE_URL || "https://sandbox.momodeveloper.mtn.com";
+    const momoBase =
+      process.env.MOMO_BASE_URL || "https://sandbox.momodeveloper.mtn.com";
 
-    console.log("🔑 Using MOMO_USER:", momoUser ? "Loaded ✅" : "Missing ❌");
-    console.log("🔑 Using MOMO_KEY:", momoKey ? "Loaded ✅" : "Missing ❌");
-    console.log("🔑 Using MOMO_SUB:", momoSub ? "Loaded ✅" : "Missing ❌");
-    console.log("🌍 Base URL:", momoBase);
+    console.log("🔑 MOMO_USER:", momoUser ? "Loaded ✅" : "Missing ❌");
+    console.log("🔑 MOMO_KEY:", momoKey ? "Loaded ✅" : "Missing ❌");
+    console.log("🔑 MOMO_SUB:", momoSub ? "Loaded ✅" : "Missing ❌");
+    console.log("🌍 MOMO_BASE:", momoBase);
 
-    // ✅ Generate Access Token
+    // ✅ Generate access token
     const tokenResponse = await axios.post(
       `${momoBase}/collection/token/`,
       {},
@@ -35,31 +36,35 @@ export default async function handler(req, res) {
         headers: {
           "Ocp-Apim-Subscription-Key": momoSub,
           Authorization:
-            "Basic " + Buffer.from(`${momoUser}:${momoKey}`).toString("base64"),
+            "Basic " +
+            Buffer.from(`${momoUser}:${momoKey}`).toString("base64"),
         },
       }
     );
 
     const accessToken = tokenResponse.data.access_token;
-    console.log("✅ Access token generated.");
+    console.log("✅ Access token generated successfully.");
 
-    // ✅ Generate a unique reference ID for each request
+    // ✅ Generate unique reference ID
     const referenceId = Date.now().toString();
+    console.log("💸 Reference ID:", referenceId);
 
     // ✅ Build payment payload
     const payload = {
       amount: String(amount),
-      currency: "EUR", // ⚠️ MTN Sandbox uses EUR even for Rwanda
+      currency: "EUR", // MTN Sandbox requires EUR (even for Rwanda)
       externalId: referenceId,
       payer: {
         partyIdType: "MSISDN",
-        partyId: phoneNumber, // 👈 use the phone number from user input
+        partyId: phoneNumber,
       },
       payerMessage: "Ride payment",
       payeeNote: "Hirer ride payment",
     };
 
-    // ✅ Make request to MTN MoMo API
+    console.log("📤 Sending payment payload:", payload);
+
+    // ✅ Make payment request
     const paymentResponse = await axios.post(
       `${momoBase}/collection/v1_0/requesttopay`,
       payload,
@@ -78,17 +83,21 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: "Payment initiated",
+      message: "Payment initiated successfully",
       referenceId,
       data: paymentResponse.data,
     });
   } catch (error) {
-    console.error("💥 ERROR in MoMo handler:", error.response?.data || error.message);
-    return res
-      .status(500)
-      .json({
-        error: "Payment failed",
-        details: error.response?.data || error.message,
-      });
+    console.error("💥 ERROR in MoMo handler:");
+    console.error("Status:", error.response?.status);
+    console.error("Data:", error.response?.data);
+    console.error("Headers:", error.response?.headers);
+    console.error("Config Data:", error.config?.data);
+
+    return res.status(500).json({
+      error: "Payment failed",
+      status: error.response?.status,
+      details: error.response?.data || error.message,
+    });
   }
 }
