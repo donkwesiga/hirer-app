@@ -3,12 +3,15 @@ import axios from "axios";
 export default async function handler(req, res) {
   console.log("📡 Checking MoMo payment status...");
 
+  // ✅ Allow only GET
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { referenceId } = req.body;
+  // ✅ Get referenceId from query params
+  const { referenceId } = req.query;
   if (!referenceId) {
+    console.log("❌ Missing referenceId in query");
     return res.status(400).json({ error: "Missing referenceId" });
   }
 
@@ -20,15 +23,14 @@ export default async function handler(req, res) {
 
     console.log("🔑 MOMO_USER:", momoUser ? "Loaded ✅" : "Missing ❌");
 
-    // 🔹 Step 1: Generate Access Token
+    // ✅ Step 1: Generate access token
     const tokenResponse = await axios.post(
       `${momoBase}/collection/token/`,
       {},
       {
         headers: {
           "Ocp-Apim-Subscription-Key": momoSub,
-          Authorization:
-            "Basic " + Buffer.from(`${momoUser}:${momoKey}`).toString("base64"),
+          Authorization: "Basic " + Buffer.from(`${momoUser}:${momoKey}`).toString("base64"),
         },
       }
     );
@@ -36,7 +38,7 @@ export default async function handler(req, res) {
     const accessToken = tokenResponse.data.access_token;
     console.log("✅ Access token obtained");
 
-    // 🔹 Step 2: Check the transaction status
+    // ✅ Step 2: Check transaction status
     const statusResponse = await axios.get(
       `${momoBase}/collection/v1_0/requesttopay/${referenceId}`,
       {
