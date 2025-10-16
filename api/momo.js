@@ -1,4 +1,5 @@
 import axios from "axios";
+import { randomUUID } from "crypto"; // ✅ to generate a proper UUID
 
 export default async function handler(req, res) {
   console.log("📥 Incoming request to /api/momo");
@@ -43,16 +44,16 @@ export default async function handler(req, res) {
     );
 
     const accessToken = tokenResponse.data.access_token;
-    console.log("✅ Access token generated successfully.");
+    console.log("✅ Access token generated.");
 
-    // ✅ Generate unique reference ID
-    const referenceId = Date.now().toString();
+    // ✅ Use a proper UUID for the X-Reference-Id
+    const referenceId = randomUUID();
     console.log("💸 Reference ID:", referenceId);
 
-    // ✅ Build payment payload
+    // ✅ Prepare payload
     const payload = {
       amount: String(amount),
-      currency: "EUR", // MTN Sandbox requires EUR (even for Rwanda)
+      currency: "EUR", // Required by MTN sandbox
       externalId: referenceId,
       payer: {
         partyIdType: "MSISDN",
@@ -62,10 +63,10 @@ export default async function handler(req, res) {
       payeeNote: "Hirer ride payment",
     };
 
-    console.log("📤 Sending payment payload:", payload);
+    console.log("📤 Sending payload:", payload);
 
     // ✅ Make payment request
-    const paymentResponse = await axios.post(
+    const response = await axios.post(
       `${momoBase}/collection/v1_0/requesttopay`,
       payload,
       {
@@ -79,13 +80,13 @@ export default async function handler(req, res) {
       }
     );
 
-    console.log("✅ Payment response:", paymentResponse.data);
+    console.log("✅ MoMo response:", response.data);
 
     return res.status(200).json({
       success: true,
       message: "Payment initiated successfully",
       referenceId,
-      data: paymentResponse.data,
+      data: response.data,
     });
   } catch (error) {
     console.error("💥 ERROR in MoMo handler:");
