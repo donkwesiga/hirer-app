@@ -9,17 +9,17 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase
 import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 import { getFunctions } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-functions.js";
 
-// ✅ Use your old project (hirer-5a281)
 const firebaseConfig = {
-  apiKey: "AIzaSyAQSbrAuQ0J_YBqFiPqbpNf5_N3JF_3vNg",
-  authDomain: "hirer-5a281.firebaseapp.com",
-  projectId: "hirer-5a281",
-  storageBucket: "hirer-5a281.firebasestorage.app", // keep this since it's from your Spark plan
-  messagingSenderId: "1040986291807",
-  appId: "1:1040986291807:web:3e83efa296b100d9a7e5ea"
+  apiKey: "AIzaSyBi01oAF1CUaSVwzmRQN1pIrO-1d-e8bok",
+  authDomain: "hirer-tech.firebaseapp.com",
+  projectId: "hirer-tech",
+  storageBucket: "hirer-tech.appspot.com", // ✅ correct format
+  messagingSenderId: "42432389751",
+  appId: "1:42432389751:web:b279071a6467c758a8dc72",
+  measurementId: "G-572YE5DSZ8"
 };
 
-// ✅ Initialize app
+// ✅ Initialize Firebase
 export const app = initializeApp(firebaseConfig);
 
 // ✅ Auth with persistence
