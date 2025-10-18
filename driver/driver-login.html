@@ -24,7 +24,7 @@
     import { doc, getDoc } 
       from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    document.getElementById("loginForm").addEventListener("submit", async e => {
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
@@ -32,32 +32,39 @@
       try {
         const userCred = await signInWithEmailAndPassword(auth, email, password);
 
+        // ✅ Require email verification before login
         if (!userCred.user.emailVerified) {
           await signOut(auth);
           alert("⚠️ Please verify your email before logging in.");
           return;
         }
 
+        // ✅ Fetch driver profile from Firestore
         const driverDoc = await getDoc(doc(db, "drivers", userCred.user.uid));
         if (!driverDoc.exists()) {
           await signOut(auth);
-          alert("❌ No driver profile found. Please register again.");
+          alert("❌ Driver profile not found. Please register again.");
           return;
         }
 
         const driverData = driverDoc.data();
+
         if (driverData.status === "pending") {
           await signOut(auth);
-          alert("⏳ Your account is pending admin approval.");
-          return;
-        }
-        if (driverData.status === "rejected") {
-          await signOut(auth);
-          alert("🚫 Your driver account was rejected. Contact support.");
+          alert("⏳ Your account is pending admin approval. Please wait for confirmation.");
           return;
         }
 
+        if (driverData.status === "rejected") {
+          await signOut(auth);
+          alert("🚫 Your driver account was rejected. Contact admin for help.");
+          return;
+        }
+
+        // ✅ If approved, redirect to dashboard
+        alert("✅ Login successful!");
         window.location.href = "driver-dashboard.html";
+
       } catch (err) {
         alert("❌ Login failed: " + err.message);
       }

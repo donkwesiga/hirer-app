@@ -11,7 +11,7 @@
     <h2>Register as a Driver</h2>
     <form id="registerForm">
       <input type="text" id="fullName" placeholder="Full Name" required>
-      <input type="tel" id="phoneNumber" placeholder="Phone Number" required>
+      <input type="tel" id="phoneNumber" placeholder="Phone Number (e.g. 2507XXXXXXX)" required>
       <input type="text" id="vehicleType" placeholder="Vehicle Type" required>
       <input type="text" id="plateNumber" placeholder="Plate Number" required>
       <input type="email" id="email" placeholder="Email" required>
@@ -23,70 +23,75 @@
   </div>
 
   <script type="module">
-  import { auth, db, storage } from "../firebase/firebase-config.js";
-  import { createUserWithEmailAndPassword, sendEmailVerification } 
-    from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-  import { doc, setDoc, serverTimestamp } 
-    from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-  import { ref, uploadBytes, getDownloadURL } 
-    from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+    import { auth, db, storage } from "../firebase/firebase-config.js";
+    import { createUserWithEmailAndPassword, sendEmailVerification } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { doc, setDoc, serverTimestamp } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { ref, uploadBytes, getDownloadURL } 
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
-  document.getElementById("registerForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-    const fullName = document.getElementById("fullName").value.trim();
-    const phoneNumber = document.getElementById("phoneNumber").value.trim();
-    const vehicleType = document.getElementById("vehicleType").value.trim();
-    const plateNumber = document.getElementById("plateNumber").value.trim();
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value;
-    const file = document.getElementById("licenseFile").files[0];
+      const fullName = document.getElementById("fullName").value.trim();
+      const phoneNumber = document.getElementById("phoneNumber").value.trim();
+      const vehicleType = document.getElementById("vehicleType").value.trim();
+      const plateNumber = document.getElementById("plateNumber").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const file = document.getElementById("licenseFile").files[0];
 
-    if (!file) {
-      alert("Please upload your license file.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert("File too large! Max size is 5MB.");
-      return;
-    }
+      if (!file) {
+        alert("Please upload your license file.");
+        return;
+      }
 
-    try {
-      // ✅ Create auth user
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
-      await sendEmailVerification(userCred.user);
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File too large! Max size is 5MB.");
+        return;
+      }
 
-      // ✅ Upload license to Firebase Storage
-      const storageRef = ref(storage, `licenses/${userCred.user.uid}/${file.name}`);
-      await uploadBytes(storageRef, file);
-      const fileURL = await getDownloadURL(storageRef);
+      try {
+        // ✅ Create auth user
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // ✅ Create driver profile in Firestore (for admin approval)
-      await setDoc(doc(db, "drivers", userCred.user.uid), {
-        fullName,
-        phoneNumber,
-        vehicleType,
-        plateNumber,
-        email,
-        licenseURL: fileURL,
-        status: "pending",              // 👈 required for admin dashboard
-        createdAt: serverTimestamp()    // ✅ ensures Firestore timestamp
-      });
+        // ✅ Send email verification
+        await sendEmailVerification(userCred.user);
+        alert(`📩 Verification email sent to ${email}. Please check your inbox (and spam folder).`);
 
-      // ✅ Also add user role (for role-based access control)
-      await setDoc(doc(db, "users", userCred.user.uid), {
-        role: "driver",                 // 👈 helps admin dashboard filter users
-        email,
-        createdAt: serverTimestamp()
-      });
+        // ✅ Upload license to Firebase Storage
+        const storageRef = ref(storage, `licenses/${userCred.user.uid}/${file.name}`);
+        await uploadBytes(storageRef, file);
+        const fileURL = await getDownloadURL(storageRef);
 
-      alert("✅ Driver registered successfully! Please verify your email. Once approved by admin, you can start accepting rides.");
-      window.location.href = "driver-login.html";
-    } catch (err) {
-      console.error("❌ Registration error:", err);
-      alert("❌ Registration failed: " + err.message);
-    }
-  });
-</script>
+        // ✅ Create driver profile in Firestore (admin will approve)
+        await setDoc(doc(db, "drivers", userCred.user.uid), {
+          fullName,
+          phoneNumber,
+          vehicleType,
+          plateNumber,
+          email,
+          licenseURL: fileURL,
+          status: "pending",
+          createdAt: serverTimestamp()
+        });
+
+        // ✅ Add user role (helps identify driver in app)
+        await setDoc(doc(db, "users", userCred.user.uid), {
+          role: "driver",
+          email,
+          createdAt: serverTimestamp()
+        });
+
+        alert("✅ Driver registered successfully! Verify your email before login. Admin must approve your profile before you can start accepting rides.");
+        window.location.href = "driver-login.html";
+
+      } catch (err) {
+        console.error("❌ Registration error:", err);
+        alert("❌ Registration failed: " + err.message);
+      }
+    });
+  </script>
 </body>
 </html>
